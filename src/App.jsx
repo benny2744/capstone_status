@@ -282,35 +282,55 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Strengths & Weaknesses */}
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* Courses & Grades */}
+                  {selectedStudent.courses && selectedStudent.courses.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Strengths</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {selectedStudent.strengths?.map((s, i) => (
-                          <span key={i} className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-xs font-medium">{s}</span>
-                        ))}
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Courses & Grades</h4>
+                      <div className="space-y-2">
+                        {selectedStudent.courses.map((course, i) => {
+                          const gradeColors = {
+                            5: 'bg-violet-100 text-violet-700 border-violet-300',
+                            4: 'bg-emerald-50 text-emerald-600 border-emerald-300',
+                            3: 'bg-blue-50 text-blue-600 border-blue-300',
+                            2: 'bg-amber-50 text-amber-600 border-amber-300',
+                            1: 'bg-rose-50 text-rose-600 border-rose-300',
+                            0: 'bg-slate-100 text-slate-500 border-slate-300'
+                          };
+                          const gradeLabels = {
+                            5: '超越', 4: '精熟', 3: '掌握', 2: '生长', 1: '萌芽', 0: 'F'
+                          };
+                          const colorClass = gradeColors[course.gradeNum] || gradeColors[3];
+                          return (
+                            <details key={i} className="group border rounded-lg overflow-hidden">
+                              <summary className="cursor-pointer list-none px-3 py-2 bg-slate-50 hover:bg-slate-100 flex items-center justify-between">
+                                <span className="font-medium text-sm text-slate-700">{course.name}</span>
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${colorClass}`}>
+                                  {gradeLabels[course.gradeNum]} [{course.gradeNum}]
+                                </span>
+                              </summary>
+                              {course.feedback && (
+                                <div className="px-3 py-2 text-sm text-slate-600 bg-white border-t">
+                                  {course.feedback}
+                                </div>
+                              )}
+                            </details>
+                          );
+                        })}
                       </div>
                     </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Areas for Growth</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {selectedStudent.weaknesses?.map((w, i) => (
-                          <span key={i} className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-xs font-medium">{w}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Activities */}
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Activities</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {selectedStudent.activities?.map((a, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-xs font-medium">{a}</span>
-                      ))}
+                  {selectedStudent.activities && selectedStudent.activities.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Activities</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedStudent.activities.map((a, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-xs font-medium">{a}</span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Growth Portrait */}
                   {selectedStudent.growthPortrait && (

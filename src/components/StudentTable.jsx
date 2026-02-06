@@ -85,8 +85,7 @@ function StudentTable({ students, onSelectStudent }) {
                         >
                             GPA {getSortIcon('gpa')}
                         </th>
-                        <th className="py-3 px-4 font-semibold text-slate-600">Strengths</th>
-                        <th className="py-3 px-4 font-semibold text-slate-600">Areas for Growth</th>
+                        <th className="py-3 px-4 font-semibold text-slate-600">Courses & Grades</th>
                         <th className="py-3 px-4 font-semibold text-slate-600">Activities</th>
                         <th className="py-3 px-4 font-semibold text-slate-600">Future Direction</th>
                     </tr>
@@ -128,34 +127,33 @@ function StudentTable({ students, onSelectStudent }) {
                                 </span>
                             </td>
 
-                            {/* Strengths */}
+                            {/* Courses & Grades */}
                             <td className="py-3 px-4">
-                                <div className="flex flex-wrap gap-1">
-                                    {student.strengths?.slice(0, 2).map((s, i) => (
-                                        <span key={i} className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-xs font-medium">
-                                            {s}
-                                        </span>
-                                    ))}
-                                    {student.strengths?.length > 2 && (
+                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                    {student.courses?.slice(0, 3).map((c, i) => {
+                                        const gradeColors = {
+                                            5: 'bg-violet-100 text-violet-700 border-violet-200',
+                                            4: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+                                            3: 'bg-blue-50 text-blue-600 border-blue-200',
+                                            2: 'bg-amber-50 text-amber-600 border-amber-200',
+                                            1: 'bg-rose-50 text-rose-600 border-rose-200',
+                                            0: 'bg-slate-100 text-slate-500 border-slate-200'
+                                        };
+                                        const colorClass = gradeColors[c.gradeNum] || gradeColors[3];
+                                        const shortName = c.name.length > 12 ? c.name.substring(0, 12) + '…' : c.name;
+                                        return (
+                                            <span key={i} className={`px-2 py-0.5 rounded-full text-xs font-medium border ${colorClass}`} title={`${c.name}: ${c.grade}`}>
+                                                {shortName} [{c.gradeNum}]
+                                            </span>
+                                        );
+                                    })}
+                                    {student.courses?.length > 3 && (
                                         <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs">
-                                            +{student.strengths.length - 2}
+                                            +{student.courses.length - 3}
                                         </span>
                                     )}
-                                </div>
-                            </td>
-
-                            {/* Weaknesses */}
-                            <td className="py-3 px-4">
-                                <div className="flex flex-wrap gap-1">
-                                    {student.weaknesses?.slice(0, 2).map((w, i) => (
-                                        <span key={i} className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-xs font-medium">
-                                            {w}
-                                        </span>
-                                    ))}
-                                    {student.weaknesses?.length > 2 && (
-                                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs">
-                                            +{student.weaknesses.length - 2}
-                                        </span>
+                                    {(!student.courses || student.courses.length === 0) && (
+                                        <span className="text-slate-400 text-xs">No courses</span>
                                     )}
                                 </div>
                             </td>
