@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/render-blueprint.json",
+  "services": [
+    {
+      "name": "student-dashboard",
+      "type": "web",
+      "runtime": "python",
+      "plan": "free",
+      "buildCommand": "pip install -r server/requirements.txt",
+      "startCommand": "cd server && gunicorn app:app",
+      "envVars": [
+        {
+          "key": "SECRET_KEY",
+          "generateValue": true
+        },
+        {
+          "key": "FLASK_DEBUG",
+          "value": "false"
+        }
+      ]
+    }
+  ]
+}
