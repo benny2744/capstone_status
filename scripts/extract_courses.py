@@ -1,49 +1,69 @@
 #!/usr/bin/env python3
 """
 Extract course grades from growth portrait PDFs using visual position detection.
+Improved version with dynamic Y-position detection and better color matching.
 """
 
 import fitz  # PyMuPDF
 import json
 import re
 from pathlib import Path
+from collections import Counter
 
 # X positions for each grade (approximate centers)
-GRADE_X_POSITIONS = {
-    0: 60,   # F
-    1: 143,  # 萌芽 [1]
-    2: 223,  # 生长 [2]
-    3: 303,  # 掌握 [3]
-    4: 383,  # 精熟 [4]
-    5: 462   # 超越 [5]
-}
-
-# Bright colors indicating active grade (teal/cyan and orange/red variants)
-ACTIVE_COLORS = [
-    (0.075, 0.671, 0.871),  # Teal
-    (0.996, 0.447, 0.337),  # Orange/red
-    (0.075, 0.670, 0.871),  # Teal variant
-    (0.996, 0.447, 0.338),  # Orange variant
+GRADE_X_POSITIONS = [
+    (60, 0),    # F
+    (145, 1),   # 萌芽 [1]
+    (225, 2),   # 生长 [2]
+    (305, 3),   # 掌握 [3]
+    (385, 4),   # 精熟 [4]
+    (465, 5)    # 超越 [5]
 ]
 
-def is_active_color(fill):
-    """Check if fill color indicates an active (selected) grade."""
+# Dark blue color used for inactive grades
+INACTIVE_COLOR = (0.004, 0.067, 0.239)
+
+def is_inactive_color(fill):
+    """Check if fill is the inactive dark blue color."""
     if not fill:
-        return False
-    for active in ACTIVE_COLORS:
-        if all(abs(fill[i] - active[i]) < 0.1 for i in range(3)):
-            return True
-    # Also check for bright colors (not dark blue or gray)
-    # Dark blue: (0.004, 0.067, 0.239)
-    # Gray: (0.6, 0.6, 0.6) or (0.957, 0.957, 0.957)
+        return True
     r, g, b = fill
-    if r > 0.5 or g > 0.5 or (b > 0.5 and r > 0.1):
-        # Likely a bright/active color
+    # Check if close to dark blue
+    return (r < 0.05 and g < 0.1 and b < 0.3)
+
+def is_gray_or_white(fill):
+    """Check if fill is gray or white (background)."""
+    if not fill:
+        return True
+    r, g, b = fill
+    # White/light gray
+    if r > 0.9 and g > 0.9 and b > 0.9:
+        return True
+    # Mid gray
+    if 0.5 < r < 0.7 and 0.5 < g < 0.7 and 0.5 < b < 0.7:
         return True
     return False
 
-def find_grade_from_graphics(page, grade_y_min=380, grade_y_max=430):
+def find_grade_scale_y(page):
+    """Find the Y position of the grade scale text."""
+    blocks = page.get_text('dict')['blocks']
+    for block in blocks:
+        if 'lines' in block:
+            for line in block['lines']:
+                for span in line['spans']:
+                    t = span['text'].strip()
+                    if t == '掌握':  # Look for middle grade marker
+                        return span['origin'][1]
+    return None
+
+def find_grade_from_graphics(page):
     """Find the selected grade from graphics on the page."""
+    # First, find where the grade scale is on this page
+    grade_y = find_grade_scale_y(page)
+    if grade_y is None:
+        return None
+    
+    # Look for colored shapes near the grade bar (within 30 pixels above the text)
     drawings = page.get_drawings()
     
     active_x_positions = []
@@ -52,29 +72,28 @@ def find_grade_from_graphics(page, grade_y_min=380, grade_y_max=430):
         rect = d.get('rect')
         fill = d.get('fill')
         if rect and fill:
-            y = rect.y0
-            if grade_y_min < y < grade_y_max:
-                if is_active_color(fill):
+            # Check if in the grade bar area (slightly above the text labels)
+            if grade_y - 40 < rect.y0 < grade_y + 10:
+                # Skip inactive (dark blue) and background colors
+                if not is_inactive_color(fill) and not is_gray_or_white(fill):
                     x_center = (rect.x0 + rect.x1) / 2
                     active_x_positions.append(x_center)
     
     if not active_x_positions:
         return None
     
-    # Find the most common x position (the grade indicator)
-    # Look for the x position closest to one of our grade positions
-    avg_x = sum(active_x_positions) / len(active_x_positions)
+    # Find the most common x position range (multiple shapes form the indicator)
+    x_counts = Counter()
+    for x_pos, grade in GRADE_X_POSITIONS:
+        for x in active_x_positions:
+            if abs(x - x_pos) < 40:  # Within 40 pixels of grade position
+                x_counts[grade] += 1
     
-    best_grade = 3  # Default
-    min_dist = float('inf')
+    if not x_counts:
+        return None
     
-    for grade, x_pos in GRADE_X_POSITIONS.items():
-        dist = abs(avg_x - x_pos)
-        if dist < min_dist:
-            min_dist = dist
-            best_grade = grade
-    
-    return best_grade
+    # Return the grade with most matching shapes
+    return x_counts.most_common(1)[0][0]
 
 def extract_courses_from_page(page, page_text):
     """Extract course info from a single page."""
@@ -92,7 +111,9 @@ def extract_courses_from_page(page, page_text):
     course_name = None
     for line in reversed(lines[-15:]):
         # Skip grade scale, keywords, empty
-        if any(skip in line for skip in ['课程', '教师', '素养', '成绩', '建议', '高光', '超越', '精熟', '掌握', '生长', '萌芽']):
+        skip_keywords = ['课程', '教师', '素养', '成绩', '建议', '高光', '超越', '精熟', 
+                        '掌握', '生长', '萌芽', '扫码', 'QR', 'Scan', 'DingTalk']
+        if any(skip in line for skip in skip_keywords):
             continue
         if len(line) > 2 and len(line) < 40:
             course_name = line
@@ -163,7 +184,10 @@ def process_all_pdfs(pdf_dir, output_file):
                 'englishName': english_name,
                 'courses': courses
             }
-            print(f" - {len(courses)} courses")
+            # Count grade distribution
+            grades = [c['gradeNum'] for c in courses]
+            grade_dist = Counter(grades)
+            print(f" - {len(courses)} courses: {dict(grade_dist)}")
         except Exception as e:
             print(f" - Error: {e}")
     
@@ -180,7 +204,8 @@ if __name__ == '__main__':
     data = process_all_pdfs(pdf_dir, output_file)
     
     # Show sample with actual grades
+    print("\n=== Sample Output ===")
     for name in list(data.keys())[:3]:
         print(f"\n{name}:")
-        for course in data[name]['courses'][:5]:
-            print(f"  - {course['name']}: Grade {course['gradeNum']}")
+        for course in data[name]['courses']:
+            print(f"  [{course['gradeNum']}] {course['name']}")
